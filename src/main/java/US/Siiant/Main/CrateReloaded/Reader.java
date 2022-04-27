@@ -7,7 +7,6 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 
 public class Reader {
@@ -19,30 +18,30 @@ public class Reader {
         InputStream inputStream = null;
         try {
             //Read the file.
-            inputStream = new FileInputStream("C:\\Users\\Surface\\Desktop\\CrateConverter\\crate.yml");
+            inputStream = new FileInputStream("C:\\Users\\Siiant\\Desktop\\crate.yml");
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
         //Load the file as a map, String as the header, contents as an object.
         Map<String, Object> obj = yaml.load(inputStream);
         obj.forEach((key,value) -> {
-            String rawCrateConfig = value.toString().replace("{", "%").replace("}","%");
+            String fixedCrateConfig = value.toString().replace("{", "%").replace("}","%");
             //Create the CrateReloaded Crate
             Crate crate = new Crate(key);
             //Set Type
-            String temp = getContents("type=", "item=", rawCrateConfig);
+            String temp = getContents("type=", "item=", fixedCrateConfig);
             crate.setType(temp.substring(0,temp.length() -1));
             //Set Key
-            String item = getContents("item=", "animation=", rawCrateConfig);
+            String item = getContents("item=", "animation=", fixedCrateConfig);
             //Set the Key Item
-            crate.setKeyItem(getContents("item=", "name:", rawCrateConfig));
+            crate.setKeyItem(getContents("item=", "name:", fixedCrateConfig));
             //Set the Key Amount needed
 
            crate.setKeyAmount(Integer.parseInt(item.substring(item.indexOf("name:")  -2, item.indexOf("name:")).replace(" ", "")));
             //Set the Key Display Name
             crate.setKeyDisplayName(getContents("name:", "lore:",item));
             //Set Key Lore
-            String keyLore = getContents("lore:", "animation=", rawCrateConfig);
+            String keyLore = getContents("lore:", "animation=", fixedCrateConfig);
             if(keyLore.contains("glow:true")){
                 //Remove the glow option from lore.
                 keyLore = keyLore.replace("glow:true", "");
@@ -53,16 +52,16 @@ public class Reader {
                 crate.setKeyLore(keyLore.split("\\|"));
             }
             //Set Animation
-            temp = getContents("animation=", "display-name=", rawCrateConfig);
+            temp = getContents("animation=", "display-name=", fixedCrateConfig);
             crate.setAnimation(temp.substring(0,temp.length() - 1));
             //Set DisplayName
-            temp = getContents("display-name=", "holographic=", rawCrateConfig);
+            temp = getContents("display-name=", "holographic=", fixedCrateConfig);
             crate.setAnimation(temp.substring(0,temp.length() - 1));
             //Set Holograms
-            String hologramRaw = getContents("holographic=", "confirmation=", rawCrateConfig );
+            String hologramRaw = getContents("holographic=", "confirmation=", fixedCrateConfig );
             crate.setHologram(new ArrayList<>(Arrays.asList(hologramRaw.substring(0,hologramRaw.lastIndexOf(",")).split(","))));
             //Get ConfirmationEnabled
-            String rawConfirm = getContents("confirmation=","preview=",rawCrateConfig);
+            String rawConfirm = getContents("confirmation=","preview=",fixedCrateConfig);
             crate.setConfirmation(rawConfirm.contains("true"));
             //Setup Accept button
             String acceptRaw  = getContents("accept-button=", "decline-button=", rawConfirm);
@@ -91,7 +90,7 @@ public class Reader {
             }
 
             //Setup Decline button
-            String declineRaw  = getContents("decline-button=", "preview=", rawCrateConfig);
+            String declineRaw  = getContents("decline-button=", "preview=", fixedCrateConfig);
            //Set the Decline Item
             crate.setDeclineItem(declineRaw.substring(item.indexOf(" ") - 1));
             //Set the Decline Amount
@@ -117,36 +116,105 @@ public class Reader {
             }
 
             //Set Preview
-            String rawPreview = getContents("preview=","buy=",rawCrateConfig);
+            String rawPreview = getContents("preview=","buy=",fixedCrateConfig);
                 //Set enabled
             crate.setPreview(rawPreview.contains("true"));
                 //Get Rows
-            crate.setRows(Integer.parseInt(rawPreview.substring(rawPreview.indexOf("rows=")).replace("rows=", "")));
+            String rows = (rawPreview.substring(rawPreview.indexOf("rows=")).replace("rows=", ""));
+            rows = rows.substring(0, rows.length() -2);
+            if(rows.contains("%")){
+                rows = rows.replace("%", "");
+            }
+            crate.setRows(Integer.parseInt(rows));
 
-            String rawBuy = getContents("buy=","message=",rawCrateConfig);
+            String rawBuy = getContents("buy=","message=",fixedCrateConfig);
+            if (rawBuy.contains("%")){
+                rawBuy = rawBuy.replace("%", "");
+            }
+            if(rawBuy.contains(",")){
+                rawBuy = rawBuy.replace(",","");
+            }
                 //Set enabled
             crate.setBuy(rawBuy.contains("true"));
             //Get Message Open
-            crate.setCost(Integer.parseInt(rawBuy.substring(rawBuy.indexOf("cost:")).replace(" ", "")));
-            //Get Message
-            String rawMessage = getContents("message=", "effect=", rawCrateConfig);
-            //Set Player Message
-            crate.setMessageOpen(getContents("open:", "broadcast:", rawMessage));
-            //Set Broadcast Message
-            crate.setBroadcast(rawMessage.substring(rawMessage.indexOf("broadcast:")));
+            String rawCost = rawBuy.substring(rawBuy.indexOf("cost=")).replace(" ", "");
+            if(rawCost.contains("cost=")){
+                rawCost = rawCost.replace("cost=", "");
+            }
+            crate.setCost(Integer.parseInt(rawCost));
+                //Get Message
+            String rawMessage = getContents("message=", "effect=", fixedCrateConfig);
+                //Set Player Message
+            crate.setMessageOpen(getContents("open=", "broadcast=", rawMessage));
+                //Set Broadcast Message
+            crate.setBroadcast(rawMessage.substring(rawMessage.indexOf("broadcast=")));
 
             //Get Effects
-
+                String rawEffects = getContents("effect=","reward=",fixedCrateConfig);
+                if(rawEffects.contains("%%")){
+                    rawEffects = rawEffects.replace("%%", "%");
+                }
+                ArrayList<Effect> effects = new ArrayList<>();
+                String[] split = rawEffects.split("%,");
+                //For each effect there is per crate, this will run.
+                // EX 2 Crates x 3 Effects per = 6 Runs total
+                for(int i = 0; i < split.length -1; i++){
+                    Effect effect = new Effect();
+                    if(split[i].toLowerCase().contains("firework")){
+                        String rawEffect = split[i].replace(",", "");
+                        //Set class
+                        effect.setClassType(getContents("class=","category=", rawEffect));
+                        //Set Category
+                        effect.setCategory(getContents("category=","fireworkType=",rawEffect));
+                        //Set firework Type
+                        effect.setFireworkType(getContents("fireworkType=", "color=", rawEffect));
+                        //Set color1
+                        effect.setColor(getContents("color=","color2=",rawEffect));
+                        //Set color2
+                        effect.setColor2(getContents("color2=","color3=",rawEffect));
+                        //Set color3
+                        effect.setColor3(getContents("color3=","fadeColor=",rawEffect));
+                        //Set Fade Color
+                        effect.setFadeColor(getContents("fadeColor=", "trail=",rawEffect));
+                        //Set trail
+                        effect.setTrail(rawEffect.contains("true"));
+                        //Set radius
+                        effect.setRadius(getContents("radius=", "power=",rawEffect));
+                        //Set Power
+                        effect.setPower(Integer.parseInt( rawEffect.substring(rawEffect.indexOf("power=")).replace("power=", "")));
+                    } else {
+                        String rawEffect = split[i].replace(",", "");
+                        //Set class
+                        effect.setClassType(getContents("class=","category=", rawEffect));
+                        //Set Category
+                        effect.setCategory(getContents("category=","particle=",rawEffect));
+                        //Set Particle
+                        effect.setParticle(getContents("particle=","radius=",rawEffect));
+                        //Set radius
+                        effect.setRadius(getContents("radius=", "particles=",rawEffect));
+                        //Set Particles
+                        effect.setParticles(Integer.parseInt(getContents("particles=","period=",rawEffect).replace(" ", "")));
+                        //Set Period
+                        effect.setPeriod(Integer.parseInt( rawEffect.substring(rawEffect.indexOf("period=")).replace("period=", "")));
+                    }
+                    //Set the effect in the effects list
+                    effects.add(effect);
+                }
+            //Set the crates effects after reading all of them.
+            crate.setEffects(effects);
             //Get Rewards
+            //We pass in the raw config for the crate here, as it makes it easier to get the rewards this way.
             crate.setRewards(setupRewards(value.toString()));
-           //System.out.println(getContents("chance:(", ")", rewards));
+
+            //Completed Crate Message
+            System.out.println("Finished reading " + key + " crate from CrateReloaded.");
         });
 
     }
 
 
     private ArrayList<Reward> setupRewards(String rawCrateConfig) {
-        String rawRewards = getContents("rewards=[", "]}}", rawCrateConfig.toString());
+        String rawRewards = getContents("rewards=[", "]}}", rawCrateConfig);
         ArrayList<Reward> rewards = new ArrayList<>();
         //Replace first case of the string "unique:()" to properly format the strings
         String temp = rawRewards.replaceFirst("unique:\\(\\),", "");

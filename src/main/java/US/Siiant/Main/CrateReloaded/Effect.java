@@ -11,7 +11,7 @@ public class Effect {
     private String color2;
     private String color3;
     private String fadeColor;
-    private String trail;
+    private Boolean trail;
     private int power;
 
     private String particle;
@@ -82,11 +82,11 @@ public class Effect {
         this.fadeColor = fadeColor;
     }
 
-    public String getTrail() {
+    public boolean getTrail() {
         return trail;
     }
 
-    public void setTrail(String trail) {
+    public void setTrail(boolean trail) {
         this.trail = trail;
     }
 
